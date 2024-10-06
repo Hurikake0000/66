@@ -3,10 +3,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 환경 변수에서 SECRET_KEY 가져오기
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'fallback_secret_key')
 
-# 환경 변수에서 DEBUG 가져오기
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = []
@@ -18,8 +16,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'channels',  # Channels 추가
-    'webscraper',  # 웹스크래퍼 앱 추가
+    'channels',  
+    'webscraper',  
 ]
 
 MIDDLEWARE = [
@@ -55,12 +53,7 @@ ASGI_APPLICATION = 'myproject.asgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'knu_1801170'),
-        'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', '1541'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
+    
     }
 }
 
