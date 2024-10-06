@@ -24,7 +24,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'myproject.custom_csrf_middleware.CustomCsrfMiddleware',  # CustomCsrfMiddleware 경로 수정
+    'myproject.custom_csrf_middleware.CustomCsrfMiddleware',  
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
