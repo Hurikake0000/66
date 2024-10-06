@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웹 검색</title>
+    <style>
+        .keyword-container {
+            margin-bottom: 10px;
+        }
+        .button-container {
+            margin-top: 10px;
+        }
+        #recommendKeywords {
+            margin-left: 20px;
+        }
+        #addKeyword {
+            display: none;  /* 키워드 추가 버튼 숨김 */
+        }
+        .loader {
+            --s: 15px;
+            width: calc(var(--s)*2.33);
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: space-between;
+            margin: 20px auto;
+        }
+        .loader::before,
+        .loader::after {
+            content: "";
+            width: var(--s);
+            --_g: no-repeat radial-gradient(farthest-side,#000 94%,#0000);
+            background: var(--_g) top, var(--_g) bottom;
+            background-size: 100% var(--s);
+            transform-origin: 50% calc(100% - var(--s)/2);
+            animation: l30 1s infinite;
+        }
+        .loader::after {
+            transform-origin: 50% calc(var(--s)/2);
+        }
+        @keyframes l30 {
+            70%,100% {transform:rotate(-270deg)}
+        }
+        #loading {
+            text-align: center;
+        }
+        #crawledDataContainer {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+        #pagination {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .new-data {
+            border-bottom: 2px solid red;
+        }
+        #refreshDataBtn {
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #refreshDataBtn:hover {
+            background-color: #45a049;
+        }
+    </style>
+    {% load static %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOMContentLoaded event triggered");
+
+            const audio = new Audio('{% static "alert.mp3" %}');
+
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+
+            const crawlForm = document.getElementById('crawlForm');
+            console.log("crawlForm element:", crawlForm);
+
+            crawlForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const loadingElement = document.getElementById("loading");
+                const resultsElement = document.getElementById("results");
+                
+                loadingElement.style.display = "block";
+                resultsElement.innerText = "";
+
+                let url = document.getElementById("url").value.trim();
+                if (!/^https?:\/\//i.test(url)) {
+                    url = 'http://' + url;
+                }
+                const keywordElements = document.getElementsByClassName("keyword");
+                let keywords = Array.from(keywordElements).map(el => el.value.trim()).filter(k => k !== "");
+
+                fetch("/start_crawling/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ url: url, keywords: keywords })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data);
+                    startCrawlingStatusCheck();
+                })
+                .catch(error => {
+                    console.log('There has been a problem with your fetch operation:', error);
+                    loadingElement.style.display = "none";
+                    resultsElement.innerText = "오류가 발생했습니다. 다시 시도해 주세요.";
+                });
+            });
+
+            const addKeywordButton = document.getElementById('addKeyword');
+            console.log("addKeywordButton element:", addKeywordButton);
+
+            addKeywordButton.addEventListener('click', function() {
+                const keywordContainer = document.getElementById('keywords');
+                const newKeywordDiv = document.createElement('div');
+                newKeywordDiv.className = 'keyword-container';
+                const newKeywordInput = document.createElement('input');
+                newKeywordInput.type = 'text';
+                newKeywordInput.name = 'keyword';
+                newKeywordInput.className = 'keyword';
+                newKeywordInput.required = true;
+                newKeywordDiv.appendChild(newKeywordInput);
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.innerText = '제거';
+                removeButton.addEventListener('click', function() {
+                    keywordContainer.removeChild(newKeywordDiv);
+                });
+                newKeywordDiv.appendChild(removeButton);
+                keywordContainer.appendChild(newKeywordDiv);
+            });
+
+            const recommendKeywordsButton = document.getElementById('recommendKeywords');
+            console.log("recommendKeywordsButton element:", recommendKeywordsButton);
+
+            recommendKeywordsButton.addEventListener('click', function() {
+                let url = document.getElementById("url").value.trim();
+                if (!/^https?:\/\//i.test(url)) {
+                    url = 'http://' + url;
+                }
+
+                if (!url) {
+                    alert("URL을 입력하세요.");
+                    return;
+                }
+
+                fetch("/recommend_keywords/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ url: url })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        alert("추천 키워드: " + data.keywords.join(", "));
+                    } else {
+                        alert("키워드 추천에 실패했습니다.");
+                    }
+                })
+                .catch(error => {
+                    console.log('There has been a problem with your fetch operation:', error);
+                });
+            });
+
+            function checkForUpdates() {
+                fetch("/check_updates/")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.new_data_found) {
+                            audio.play().catch(error => {
+                                console.log("Error playing audio:", error);
+                            });
+
+                            if (Notification.permission === 'granted') {
+                                new Notification("새로운 정보를 발견했습니다!", {
+                                    body: "웹페이지에서 새로운 데이터를 찾았습니다.",
+                                    icon: "{% static 'alert.png' %}"
+                                });
+                            }
+                        }
+                    })
+                    .catch(error => console.log("Error checking for updates:", error));
+            }
+
+            setInterval(checkForUpdates, 5000);  // 5초마다 서버에 요청
+
+            window.addEventListener("beforeunload", function (e) {
+                navigator.sendBeacon('/clear_database/');
+            });
+
+            const refreshDataBtn = document.getElementById('refreshDataBtn');
+            const toggleDataBtn = document.getElementById('toggleDataBtn');
+            const crawledDataContainer = document.getElementById('crawledDataContainer');
+            const crawledDataList = document.getElementById('crawledDataList');
+            const prevPageBtn = document.getElementById('prevPage');
+            const nextPageBtn = document.getElementById('nextPage');
+            const currentPageSpan = document.getElementById('currentPage');
+            let currentPage = 1;
+            let lastLoadTime = null;
+
+            refreshDataBtn.addEventListener('click', function() {
+                loadCrawledData(currentPage);
+            });
+
+            toggleDataBtn.addEventListener('click', function() {
+                if (crawledDataContainer.style.display === 'none') {
+                    crawledDataContainer.style.display = 'block';
+                    loadCrawledData(currentPage);
+                } else {
+                    crawledDataContainer.style.display = 'none';
+                }
+            });
+
+            function loadCrawledData(page) {
+                fetch(`/get_crawled_data/?page=${page}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        crawledDataList.innerHTML = '';
+                        const currentTime = new Date();
+                        data.data.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            const itemTime = new Date(item.timestamp);
+                            itemDiv.innerHTML = `
+                                <p>URL: ${item.url}</p>
+                                <p>키워드: ${item.keyword}</p>
+                                <p>데이터: ${item.data}</p>
+                                <p>시간: ${item.timestamp}</p>
+                            `;
+                            if (lastLoadTime && itemTime > lastLoadTime) {
+                                itemDiv.classList.add('new-data');
+                            }
+                            itemDiv.appendChild(document.createElement('hr'));
+                            crawledDataList.appendChild(itemDiv);
+                        });
+                        lastLoadTime = currentTime;
+                        currentPage = data.current_page;
+                        currentPageSpan.textContent = `${currentPage} / ${data.total_pages}`;
+                        prevPageBtn.disabled = !data.has_previous;
+                        nextPageBtn.disabled = !data.has_next;
+                    });
+            }
+
+            prevPageBtn.addEventListener('click', () => loadCrawledData(currentPage - 1));
+            nextPageBtn.addEventListener('click', () => loadCrawledData(currentPage + 1));
+        });
+
+        function showPopup() {
+            if (!localStorage.getItem('dontShowPopup')) {
+                document.getElementById('popup').style.display = 'block';
+            }
+        }
+
+        function closePopup() {
+            document.getElementById('popup').style.display = 'none';
+            if (document.getElementById('dontShowAgain').checked) {
+                localStorage.setItem('dontShowPopup', 'true');
+                setTimeout(() => localStorage.removeItem('dontShowPopup'), 7 * 24 * 60 * 60 * 1000);
+            }
+        }
+
+        showPopup();
+
+        window.closePopup = closePopup;
+
+        function startCrawlingStatusCheck() {
+            const loadingElement = document.getElementById("loading");
+            const resultsElement = document.getElementById("results");
+            
+            const checkStatus = () => {
+                fetch("/crawling_status/")
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    if (data.status === "completed") {
+                        loadingElement.style.display = "none";
+                        resultsElement.innerText = "크롤링 완료!";
+                    } else {
+                        setTimeout(checkStatus, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.log("Error checking crawling status:", error);
+                    loadingElement.style.display = "none";
+                    resultsElement.innerText = "상태 확인 중 오류가 발생했습니다.";
+                });
+            };
+
+            checkStatus();
+        }
+    </script>
+</head>
+<body>
+    <div id="popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:white; padding:20px; border:1px solid black; z-index:1000;">
+        <h2>안내</h2>
+        <p>키워드가 정확해야만, 그 내용이 포함된 정보들은 저장 , 알람이 가능합니다. </p>
+        <label>
+            <input type="checkbox" id="dontShowAgain"> 일주일 동안 보지 않기
+        </label>
+        <br><br>
+        <button onclick="closePopup()">닫기</button>
+    </div>
+    <h1>웹 페이지 검색</h1>
+    <form id="crawlForm">
+        {% csrf_token %}
+        <label for="url">URL:</label>
+        <input type="url" id="url" name="url" required placeholder="예: www.naver.com"><br>
+        <div id="keywords">
+            <div class="keyword-container">
+                <label for="keyword">키워드:</label>
+                <input type="text" id="keyword" name="keyword" class="keyword" required>
+            </div>
+        </div>
+        <div class="button-container">
+            <button type="button" id="addKeyword">키워드 추가</button>
+            <button type="button" id="recommendKeywords">키워드 추천</button>
+        </div>
+        <input type="submit" value="검색">
+    </form>
+    <div id="loading" style="display:none;">
+        <div class="loader"></div>
+        <p>검색 중입니다...</p>
+    </div>
+    <div id="results"></div>
+    <button id="toggleDataBtn" style="display: block; margin: 10px 0; padding: 5px;">크롤링된 데이터 보기/숨기기</button>
+    <div id="crawledDataContainer" style="display: none;">
+        <h2>크롤링된 데이터</h2>
+        <button id="refreshDataBtn">새로고침</button>
+        <div id="crawledDataList"></div>
+        <div id="pagination">
+            <button id="prevPage">이전</button>
+            <span id="currentPage"></span>
+            <button id="nextPage">다음</button>
+        </div>
+    </div>
+</body>
+</html>

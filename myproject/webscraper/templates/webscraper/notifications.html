@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notifications</title>
+</head>
+<body>
+    <h1>Web Scraper Notifications</h1>
+    <p>새로운 정보가 감지되면 여기에 알림이 표시됩니다.</p>
+
+    <script>
+        const socket = new WebSocket('ws://' + window.location.host + '/ws/notify/');
+
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            alert(data.message);
+            const audio = new Audio('/static/alert.mp3');
+            audio.play();  // 소리 재생
+        };
+
+        socket.onclose = function(e) {
+            console.error('WebSocket closed unexpectedly');
+        };
+
+        socket.onerror = function(e) {
+            console.error('WebSocket error:', e);
+        };
+    </script>
+</body>
+</html>

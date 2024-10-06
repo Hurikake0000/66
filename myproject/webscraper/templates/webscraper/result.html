@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>검색 결과</title>
+    <script>
+        let socket;
+
+        function connectWebSocket() {
+            socket = new WebSocket('ws://' + window.location.host + '/ws/notify/');
+
+            socket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                alert(data.message);
+                const audio = new Audio('/static/alert.mp3');
+                audio.play();  // 소리 재생
+            };
+
+            socket.onclose = function(e) {
+                console.error('WebSocket closed unexpectedly');
+            };
+
+            socket.onerror = function(e) {
+                console.error('WebSocket error:', e);
+            };
+        }
+
+        function stopCrawling(event) {
+            event.preventDefault();
+            fetch("{% url 'stop_crawling' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+            });
+        }
+
+        window.onload = function() {
+            connectWebSocket();
+        };
+    </script>
+</head>
+<body>
+    <h1>검색 결과</h1>
+    <ul>
+        {% for result in results %}
+            <li>{{ result.data }}</li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'index' %}">다시 검색하기</a>
+    <form onsubmit="stopCrawling(event)">
+        <button type="submit">크롤링 중지</button>
+    </form>
+</body>
+</html>

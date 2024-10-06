@@ -1,0 +1,16 @@
+{% extends 'webscraper/base.html' %}
+
+{% block title %}Index Page{% endblock %}
+
+{% block content %}
+<h1>웹 페이지 검색</h1>
+<form onsubmit="startCrawling(event)">
+    {% csrf_token %}
+    <label for="url">URL:</label>
+    <input type="url" id="url" name="url" required><br>
+    <label for="keyword">키워드:</label>
+    <input type="text" id="keyword" name="keyword" required><br>
+    <input type="submit" value="검색">
+</form>
+<p id="loading" style="display:none;">검색 중입니다...</p>
+{% endblock %}
